@@ -15,6 +15,7 @@ interface TenunProduct {
   technique?: string
   material?: string
   price?: number
+  status?: 'draft' | 'published'
 }
 
 export default function KelolaTenunPage() {
@@ -29,6 +30,7 @@ export default function KelolaTenunPage() {
     technique: "",
     material: "",
     price: 0,
+    status: "published" as "draft" | "published",
   })
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -41,7 +43,7 @@ export default function KelolaTenunPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch("/api/tenun")
+      const res = await fetch("/api/tenun?includeAll=true")
       if (res.ok) setProducts(await res.json())
     } catch (error) {
       console.error("[v0] Error:", error)
@@ -52,6 +54,13 @@ export default function KelolaTenunPage() {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validasi form
+    if (!formData.title.trim() || !formData.description.trim()) {
+      alert("Judul dan deskripsi harus diisi!")
+      return
+    }
+    
     try {
       const res = await fetch("/api/tenun", {
         method: "POST",
@@ -60,6 +69,8 @@ export default function KelolaTenunPage() {
       })
 
       if (res.ok) {
+        const result = await res.json()
+        console.log("Product created successfully:", result)
         setFormData({
           title: "",
           description: "",
@@ -67,12 +78,18 @@ export default function KelolaTenunPage() {
           technique: "",
           material: "",
           price: 0,
+          status: "published",
         })
         setIsFormOpen(false)
         fetchProducts()
+      } else {
+        const errorData = await res.json()
+        console.error("Failed to create product:", errorData)
+        alert("Gagal menyimpan produk. Silakan coba lagi.")
       }
     } catch (error) {
       console.error("[v0] Error:", error)
+      alert("Terjadi kesalahan. Silakan coba lagi.")
     }
   }
 
@@ -181,10 +198,25 @@ export default function KelolaTenunPage() {
                 <input
                   type="number"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: Number.parseInt(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value ? Number.parseInt(e.target.value) : 0 })}
                   placeholder="0"
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-background"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">Status Publikasi</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as "draft" | "published" })}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-background"
+                >
+                  <option value="published">Langsung Publish</option>
+                  <option value="draft">Simpan sebagai Draft</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Draft tidak akan tampil di halaman publik, hanya admin yang bisa melihat
+                </p>
               </div>
 
               <div className="flex gap-4 pt-4">
@@ -227,6 +259,13 @@ export default function KelolaTenunPage() {
                     <h3 className="font-bold text-lg">{product.title}</h3>
                     <p className="text-sm text-muted-foreground mb-2">{product.description.substring(0, 100)}...</p>
                     <div className="flex gap-3 text-xs">
+                      <span className={`px-2 py-1 rounded font-medium ${
+                        product.status === 'draft' 
+                          ? 'bg-yellow-100 text-yellow-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {product.status === 'draft' ? 'Draft' : 'Published'}
+                      </span>
                       {product.technique && (
                         <span className="bg-primary/10 text-primary px-2 py-1 rounded">
                           Teknik: {product.technique}

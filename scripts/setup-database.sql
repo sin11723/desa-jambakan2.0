@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tenun_products (
   price INT,
   technique VARCHAR(100),
   material VARCHAR(100),
+  status ENUM('draft', 'published') DEFAULT 'published',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -56,6 +57,9 @@ CREATE TABLE IF NOT EXISTS gallery (
   category VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add status column to existing tenun_products table (if it doesn't exist)
+ALTER TABLE tenun_products ADD COLUMN IF NOT EXISTS status ENUM('draft', 'published') DEFAULT 'published';
 
 -- Insert default admin user (username: admin, password: admin123)
 INSERT INTO admin_users (username, password, email) VALUES 
