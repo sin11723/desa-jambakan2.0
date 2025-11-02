@@ -20,6 +20,8 @@ export default function KelolaGaleriPage() {
   const [gallery, setGallery] = useState<GalleryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -45,24 +47,93 @@ export default function KelolaGaleriPage() {
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+    }
+  }
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload file')
+    }
+    
+    const data = await response.json()
+    return data.imageUrl
+  }
+
+  const handleEdit = (item: GalleryItem) => {
+    setEditingId(item.id)
+    setFormData({
+      title: item.title,
+      description: item.description,
+      image_url: item.image_url,
+      category: item.category,
+    })
+    setSelectedFile(null)
+    setIsFormOpen(true)
+  }
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      description: "",
+      image_url: "",
+      category: "Tenun",
+    })
+    setSelectedFile(null)
+    setEditingId(null)
+    setIsFormOpen(false)
+  }
+
   const handleAddGallery = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const res = await fetch("/api/gallery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      })
+      let imageUrl = formData.image_url
 
-      if (res.ok) {
-        setFormData({
-          title: "",
-          description: "",
-          image_url: "",
-          category: "Tenun",
+      // Upload file if selected
+      if (selectedFile) {
+        imageUrl = await uploadFile(selectedFile)
+      }
+
+      const dataToSend = {
+        ...formData,
+        image_url: imageUrl,
+      }
+
+      if (editingId) {
+        // Update existing gallery item
+        const res = await fetch(`/api/gallery/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dataToSend),
         })
-        setIsFormOpen(false)
-        fetchGallery()
+
+        if (res.ok) {
+          resetForm()
+          fetchGallery()
+        }
+      } else {
+        // Add new gallery item
+        const res = await fetch("/api/gallery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dataToSend),
+        })
+
+        if (res.ok) {
+          resetForm()
+          fetchGallery()
+        }
       }
     } catch (error) {
       console.error("[v0] Error:", error)
@@ -95,11 +166,17 @@ export default function KelolaGaleriPage() {
             </div>
           </div>
           <button
-            onClick={() => setIsFormOpen(!isFormOpen)}
+            onClick={() => {
+              if (isFormOpen) {
+                resetForm()
+              } else {
+                setIsFormOpen(true)
+              }
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
           >
             <Plus size={20} />
-            Tambah Foto
+            {isFormOpen ? 'Batal' : 'Tambah Foto'}
           </button>
         </div>
       </div>
@@ -108,7 +185,9 @@ export default function KelolaGaleriPage() {
         {/* Form */}
         {isFormOpen && (
           <div className="bg-background border border-border rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">Tambah Foto ke Galeri</h2>
+            <h2 className="text-xl font-bold mb-4">
+              {editingId ? 'Edit Foto Galeri' : 'Tambah Foto ke Galeri'}
+            </h2>
             <form onSubmit={handleAddGallery} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">Judul Foto</label>
@@ -148,15 +227,28 @@ export default function KelolaGaleriPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">URL Gambar</label>
+                <label className="block text-sm font-semibold mb-2">Upload Gambar</label>
                 <input
-                  type="text"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://..."
-                  required
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-background"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-background file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                 />
+                {selectedFile && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    File terpilih: {selectedFile.name}
+                  </p>
+                )}
+                {editingId && formData.image_url && !selectedFile && (
+                  <div className="mt-2">
+                    <p className="text-sm text-muted-foreground mb-2">Gambar saat ini:</p>
+                    <img 
+                      src={formData.image_url} 
+                      alt="Current" 
+                      className="w-32 h-32 object-cover rounded-lg border border-border"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-4 pt-4">
@@ -164,11 +256,11 @@ export default function KelolaGaleriPage() {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
                 >
-                  Simpan Foto
+                  {editingId ? 'Update Foto' : 'Simpan Foto'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsFormOpen(false)}
+                  onClick={resetForm}
                   className="flex-1 px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary/5 transition-colors"
                 >
                   Batal
@@ -179,51 +271,56 @@ export default function KelolaGaleriPage() {
         )}
 
         {/* Gallery List */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        ) : (
-          <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
-            {gallery.length === 0 ? (
-              <div className="col-span-full text-center py-12 bg-background rounded-lg border border-border">
-                <p className="text-muted-foreground">Belum ada foto di galeri. Tambahkan foto baru!</p>
-              </div>
-            ) : (
-              gallery.map((item) => (
-                <div
-                  key={item.id}
-                  className="mb-6 bg-background border border-border rounded-lg overflow-hidden break-inside-avoid group hover:border-primary transition-all"
-                >
-                  <div className="relative h-40 bg-muted overflow-hidden">
-                    <img
-                      src={item.image_url || "/placeholder.svg"}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-sm mb-1">{item.title}</h3>
-                    <p className="text-xs text-muted-foreground mb-3">{item.description}</p>
-                    <span className="inline-block text-xs bg-primary/10 text-primary px-2 py-1 rounded mb-3">
-                      {item.category}
-                    </span>
-                    <div className="flex gap-2">
-                      <button className="flex-1 p-2 hover:bg-muted rounded transition-colors text-xs font-medium text-primary">
-                        <Edit2 size={16} className="mx-auto" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="flex-1 p-2 hover:bg-destructive/10 rounded transition-colors text-xs font-medium text-destructive"
-                      >
-                        <Trash2 size={16} className="mx-auto" />
-                      </button>
+        {!isFormOpen && (
+          loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
+              {gallery.length === 0 ? (
+                <div className="col-span-full text-center py-12 bg-background rounded-lg border border-border">
+                  <p className="text-muted-foreground">Belum ada foto di galeri. Tambahkan foto baru!</p>
+                </div>
+              ) : (
+                gallery.map((item) => (
+                  <div
+                    key={item.id}
+                    className="mb-6 bg-background border border-border rounded-lg overflow-hidden break-inside-avoid group hover:border-primary transition-all"
+                  >
+                    <div className="relative h-40 bg-muted overflow-hidden">
+                      <img
+                        src={item.image_url || "/placeholder.svg"}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-sm mb-1">{item.title}</h3>
+                      <p className="text-xs text-muted-foreground mb-3">{item.description}</p>
+                      <span className="inline-block text-xs bg-primary/10 text-primary px-2 py-1 rounded mb-3">
+                        {item.category}
+                      </span>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleEdit(item)}
+                          className="flex-1 p-2 hover:bg-muted rounded transition-colors text-xs font-medium text-primary"
+                        >
+                          <Edit2 size={16} className="mx-auto" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="flex-1 p-2 hover:bg-destructive/10 rounded transition-colors text-xs font-medium text-destructive"
+                        >
+                          <Trash2 size={16} className="mx-auto" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
+          )
         )}
       </div>
     </main>
