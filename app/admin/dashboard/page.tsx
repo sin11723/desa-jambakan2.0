@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LogOut, FileText, ImageIcon, Music, ShoppingBag } from "lucide-react"
+import { useAdminAuth } from "@/contexts/AdminAuthContext"
+import AdminLogoutWarning from "@/components/AdminLogoutWarning"
 
 interface User {
   id: number
@@ -20,7 +22,7 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
+  const { user, logout, isAuthenticated } = useAdminAuth()
   const [stats, setStats] = useState<DashboardStats>({
     totalTenun: 0,
     totalActivities: 0,
@@ -30,14 +32,10 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const userStr = localStorage.getItem("adminUser")
-    if (!userStr) {
+    if (!isAuthenticated) {
       router.push("/admin")
       return
     }
-
-    const userData: User = JSON.parse(userStr)
-    setUser(userData)
 
     const fetchStats = async () => {
       try {
@@ -62,11 +60,10 @@ export default function AdminDashboard() {
     }
 
     fetchStats()
-  }, [router])
+  }, [isAuthenticated, router])
 
   const handleLogout = () => {
-    localStorage.removeItem("adminUser")
-    router.push("/admin")
+    logout()
   }
 
   if (!user) {
@@ -213,6 +210,7 @@ export default function AdminDashboard() {
           </>
         )}
       </div>
+      <AdminLogoutWarning />
     </main>
   )
 }
