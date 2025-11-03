@@ -20,6 +20,15 @@ interface TenunProduct {
   status?: 'draft' | 'published'
 }
 
+// Fungsi untuk memformat ukuran file
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
 export default function KelolaTenunPage() {
   const router = useRouter()
   const { isAuthenticated } = useAdminAuth()
@@ -36,6 +45,7 @@ export default function KelolaTenunPage() {
     status: "published" as "draft" | "published",
   })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -119,6 +129,7 @@ export default function KelolaTenunPage() {
           status: "published",
         })
         setSelectedFile(null)
+        setFileError(null)
         setIsFormOpen(false)
         fetchProducts()
       } else {
@@ -138,10 +149,13 @@ export default function KelolaTenunPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Reset error sebelumnya
+    setFileError(null)
+
     // Validasi tipe file
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
-      alert("Tipe file tidak diizinkan. Hanya gambar (JPEG, PNG, GIF, WebP) yang diperbolehkan.")
+      setFileError("Tipe file tidak diizinkan. Hanya gambar (JPEG, PNG, GIF, WebP) yang diperbolehkan.")
       e.target.value = '' // Reset input
       return
     }
@@ -149,7 +163,7 @@ export default function KelolaTenunPage() {
     // Validasi ukuran file (2MB)
     const maxSize = 2 * 1024 * 1024 // 2MB dalam bytes
     if (file.size > maxSize) {
-      alert("Ukuran file terlalu besar. Maksimal 2MB.")
+      setFileError(`Ukuran file terlalu besar. Maksimal 2MB. File Anda: ${formatFileSize(file.size)}`)
       e.target.value = '' // Reset input
       return
     }
@@ -169,6 +183,7 @@ export default function KelolaTenunPage() {
       status: product.status || "published",
     })
     setSelectedFile(null)
+    setFileError(null)
     setIsFormOpen(true)
   }
 
@@ -232,6 +247,7 @@ export default function KelolaTenunPage() {
           status: "published",
         })
         setSelectedFile(null)
+        setFileError(null)
         setEditingId(null)
         setIsFormOpen(false)
         fetchProducts()
@@ -286,6 +302,7 @@ export default function KelolaTenunPage() {
                 status: "published",
               })
               setSelectedFile(null)
+              setFileError(null)
               setIsFormOpen(!isFormOpen)
             }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
@@ -356,16 +373,34 @@ export default function KelolaTenunPage() {
                 <label className="block text-sm font-semibold mb-2">Gambar Produk</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
                   onChange={handleFileSelect}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:border-primary bg-background file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                
+                {/* Error Message */}
+                {fileError && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm text-red-600 font-medium">{fileError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation Info */}
+                <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                   Format yang didukung: JPEG, PNG, GIF, WebP. Maksimal 2MB.
                 </p>
-                {selectedFile && (
+                </div>
+
+                {/* Selected File Info */}
+                {selectedFile && !fileError && (
                   <p className="text-sm text-green-600 mt-1">
-                    File dipilih: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                    File dipilih: {selectedFile.name} ({formatFileSize(selectedFile.size)})
                   </p>
                 )}
               </div>
@@ -399,8 +434,12 @@ export default function KelolaTenunPage() {
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
-                  disabled={uploading}
-                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={uploading || !!fileError}
+                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors ${
+                    uploading || fileError 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
                 >
                   {uploading ? "Mengupload..." : (editingId ? "Update Karya" : "Simpan Karya")}
                 </button>
@@ -419,6 +458,7 @@ export default function KelolaTenunPage() {
                       status: "published",
                     })
                     setSelectedFile(null)
+                    setFileError(null)
                   }}
                   className="flex-1 px-4 py-2 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary/5 transition-colors"
                 >
