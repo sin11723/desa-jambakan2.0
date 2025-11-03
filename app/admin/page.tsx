@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useAdminAuth } from "@/contexts/AdminAuthContext"
 
 interface User {
   id: number
@@ -14,17 +15,17 @@ interface User {
 
 export default function AdminLoginPage() {
   const router = useRouter()
+  const { login, isAuthenticated } = useAdminAuth()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const user = localStorage.getItem("adminUser")
-    if (user) {
+    if (isAuthenticated) {
       router.push("/admin/dashboard")
     }
-  }, [router])
+  }, [isAuthenticated, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,7 +45,7 @@ export default function AdminLoginPage() {
       }
 
       const data = await res.json()
-      localStorage.setItem("adminUser", JSON.stringify(data.user))
+      login(data.user)
       router.push("/admin/dashboard")
     } catch (err) {
       setError("Terjadi kesalahan saat login")

@@ -6,6 +6,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus, Edit2, Trash2, ArrowLeft, Calendar } from "lucide-react"
+import { useAdminAuth } from "@/contexts/AdminAuthContext"
+import AdminLogoutWarning from "@/components/AdminLogoutWarning"
 
 interface Activity {
   id: number
@@ -19,6 +21,7 @@ interface Activity {
 
 export default function KelolaBeritaPage() {
   const router = useRouter()
+  const { isAuthenticated } = useAdminAuth()
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -35,8 +38,13 @@ export default function KelolaBeritaPage() {
   })
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/admin")
+      return
+    }
+    
     fetchActivities()
-  }, [])
+  }, [isAuthenticated, router])
 
   const fetchActivities = async () => {
     try {
@@ -430,6 +438,7 @@ export default function KelolaBeritaPage() {
           </>
         )}
       </div>
+      <AdminLogoutWarning />
     </main>
   )
 }

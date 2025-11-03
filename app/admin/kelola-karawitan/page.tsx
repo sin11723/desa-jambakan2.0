@@ -6,6 +6,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus, Edit2, Trash2, ArrowLeft } from "lucide-react"
+import { useAdminAuth } from "@/contexts/AdminAuthContext"
+import AdminLogoutWarning from "@/components/AdminLogoutWarning"
 
 interface Karawitan {
   id: number
@@ -17,6 +19,7 @@ interface Karawitan {
 
 export default function KelolaKarawaitanPage() {
   const router = useRouter()
+  const { isAuthenticated } = useAdminAuth()
   const [karawitan, setKarawitan] = useState<Karawitan[]>([])
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -28,11 +31,13 @@ export default function KelolaKarawaitanPage() {
   })
 
   useEffect(() => {
-    const user = localStorage.getItem("adminUser")
-    if (!user) router.push("/admin")
+    if (!isAuthenticated) {
+      router.push("/admin")
+      return
+    }
 
     fetchKarawitan()
-  }, [router])
+  }, [isAuthenticated, router])
 
   const fetchKarawitan = async () => {
     try {
@@ -216,6 +221,7 @@ export default function KelolaKarawaitanPage() {
           </div>
         )}
       </div>
+      <AdminLogoutWarning />
     </main>
   )
 }

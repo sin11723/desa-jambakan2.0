@@ -6,6 +6,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus, Edit2, Trash2, ArrowLeft } from "lucide-react"
+import { useAdminAuth } from "@/contexts/AdminAuthContext"
+import AdminLogoutWarning from "@/components/AdminLogoutWarning"
 
 interface GalleryItem {
   id: number
@@ -17,6 +19,7 @@ interface GalleryItem {
 
 export default function KelolaGaleriPage() {
   const router = useRouter()
+  const { isAuthenticated } = useAdminAuth()
   const [gallery, setGallery] = useState<GalleryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -30,11 +33,13 @@ export default function KelolaGaleriPage() {
   })
 
   useEffect(() => {
-    const user = localStorage.getItem("adminUser")
-    if (!user) router.push("/admin")
+    if (!isAuthenticated) {
+      router.push("/admin")
+      return
+    }
 
     fetchGallery()
-  }, [router])
+  }, [isAuthenticated, router])
 
   const fetchGallery = async () => {
     try {
@@ -323,6 +328,7 @@ export default function KelolaGaleriPage() {
           )
         )}
       </div>
+      <AdminLogoutWarning />
     </main>
   )
 }

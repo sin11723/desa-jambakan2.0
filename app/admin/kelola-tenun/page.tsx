@@ -6,6 +6,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus, Edit2, Trash2, ArrowLeft } from "lucide-react"
+import { useAdminAuth } from "@/contexts/AdminAuthContext"
+import AdminLogoutWarning from "@/components/AdminLogoutWarning"
 
 interface TenunProduct {
   id: number
@@ -20,6 +22,7 @@ interface TenunProduct {
 
 export default function KelolaTenunPage() {
   const router = useRouter()
+  const { isAuthenticated } = useAdminAuth()
   const [products, setProducts] = useState<TenunProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -37,11 +40,13 @@ export default function KelolaTenunPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
 
   useEffect(() => {
-    const user = localStorage.getItem("adminUser")
-    if (!user) router.push("/admin")
+    if (!isAuthenticated) {
+      router.push("/admin")
+      return
+    }
 
     fetchProducts()
-  }, [router])
+  }, [isAuthenticated, router])
 
   const fetchProducts = async () => {
     try {
@@ -488,6 +493,7 @@ export default function KelolaTenunPage() {
           )
         )}
       </div>
+      <AdminLogoutWarning />
     </main>
   )
 }
